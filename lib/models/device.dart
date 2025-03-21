@@ -1,13 +1,19 @@
+import 'package:flutter/material.dart';
+
 class Device {
-  final String name;
-  final String ip;
-  final int port;
+  String name; // Removed 'final' to make mutable
+  String ip;   // Removed 'final' to make mutable
+  bool isOn;
+  double brightness;
+  bool isSynced;
+  Color? backgroundColor;
 
   Device({
     required this.name,
     required this.ip,
-    this.port = 80, // Default HTTP port
+    this.isOn = false,
+    this.brightness = 100.0,
+    this.isSynced = true,
+    this.backgroundColor,
   });
-
-  String get baseUrl => 'http://$ip:$port';
 }

@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'services/discovery_service.dart';
-import 'ui/homepage/homepage.dart';
+import 'screens/home_screen.dart';
 
 void main() {
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => DiscoveryService()),
-      ],
-      child: MyApp(),
-    ),
-  );
+  runApp(const BriteApp());
 }
 
-class MyApp extends StatelessWidget {
+class BriteApp extends StatelessWidget {
+  const BriteApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'My WLED App',
+      title: 'Brite - WLED Control',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+        brightness: Brightness.light,
       ),
-      home: Homepage(),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+      ),
+      home: const HomeScreen(),
     );
   }
 }
