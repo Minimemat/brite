@@ -1158,4 +1158,6 @@ class EffectsDatabase {
   static WLEDEffect? getEffectByName(String name) {
     return _effects.firstWhere((effect) => effect.name.toLowerCase() == name.toLowerCase(), orElse: () => _effects[0]);
   }
+
+  static getEffectId(effectName) {}
 }
