@@ -16,7 +16,7 @@ class PresetsScreen extends StatefulWidget {
 
 class _PresetsScreenState extends State<PresetsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<Preset> allPresets = PresetDatabase.getPresets();
+  List<Preset> allPresets = PresetDatabase.presets; // Updated to use the getter
   List<Preset> filteredPresets = [];
   final TextEditingController _searchController = TextEditingController();
   String _currentCategory = 'All';
@@ -90,6 +90,28 @@ class _PresetsScreenState extends State<PresetsScreen> with SingleTickerProvider
     }
   }
 
+  Map<String, dynamic> _getEffectByName(String effectName) {
+    return EffectsDatabase.effectsDatabase.firstWhere(
+      (e) => e['name'].toString().toLowerCase() == effectName.toLowerCase(),
+      orElse: () => {
+        'name': 'Unknown',
+        'flags': [],
+        'colors': [],
+        'parameters': [],
+      },
+    );
+  }
+
+  Map<String, dynamic> _getPaletteById(int paletteId) {
+    return PalettesDatabase.palettesDatabase.firstWhere(
+      (p) => p['id'] == paletteId,
+      orElse: () => {
+        'name': 'Unknown',
+        'colors': [],
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,10 +151,8 @@ class _PresetsScreenState extends State<PresetsScreen> with SingleTickerProvider
               itemCount: filteredPresets.length,
               itemBuilder: (context, index) {
                 final preset = filteredPresets[index];
-                final effect = EffectsDatabase.getEffectByName(preset.effectName);
-                final palette = preset.paletteId != null
-                    ? PalettesDatabase.getPaletteById(preset.paletteId!)
-                    : null;
+                final effect = _getEffectByName(preset.effectName);
+                final palette = preset.paletteId != null ? _getPaletteById(preset.paletteId!) : null;
 
                 return Card(
                   elevation: preset.isSelected ? 8.0 : 2.0,
@@ -168,23 +188,19 @@ class _PresetsScreenState extends State<PresetsScreen> with SingleTickerProvider
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Effect: ${effect?.name ?? 'Unknown'}',
+                                  'Effect: ${effect['name']}',
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                 ),
                                 Text(
-                                  'Flags: ${effect?.flags.map((flag) => flag == '1D' ? '📏' : flag == '2D' ? '▦' : '♫').join(', ') ?? 'None'}',
+                                  'Flags: ${(effect['flags'] as List).isNotEmpty ? (effect['flags'] as List).map((flag) => flag == '1D' ? '📏' : flag == '2D' ? '▦' : flag == 'Music' ? '♫' : '♪').join(', ') : 'None'}',
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                 ),
                                 Text(
-                                  'Colors: ${effect?.colors.isNotEmpty == true ? effect!.colors.join(', ') : '🎨'}',
+                                  'Colors: ${effect['colors'] != null && (effect['colors'] as List).isNotEmpty ? (effect['colors'] as List).join(', ') : '🎨'}',
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                 ),
                                 Text(
-                                  'Parameters: ${effect?.parameters.isNotEmpty == true ? effect!.parameters.join(', ') : 'None'}',
-                                  style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                                ),
-                                Text(
-                                  'Effect GIF: ${effect?.gifUrl ?? 'None'}',
+                                  'Parameters: ${(effect['parameters'] as List).isNotEmpty ? (effect['parameters'] as List).join(', ') : 'None'}',
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                 ),
                                 Text(
@@ -192,13 +208,8 @@ class _PresetsScreenState extends State<PresetsScreen> with SingleTickerProvider
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                 ),
                                 if (palette != null) ...[
-                                  if (palette.colors != null)
-                                    Text(
-                                      'Palette Colors: ${palette.colors!.isNotEmpty ? palette.colors!.join(', ') : 'Custom'}',
-                                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                                    ),
                                   Text(
-                                    'Palette GIF: ${palette.gifUrl ?? 'None'}',
+                                    'Palette Colors: ${palette['colors'] != null && (palette['colors'] as List).isNotEmpty ? (palette['colors'] as List).join(', ') : 'Custom'}',
                                     style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                                   ),
                                 ],
