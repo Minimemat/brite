@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../effects_database.dart';
 
 // Helper to convert hex color to RGB array with debugging
 List<int> hexToRgb(String hex) {
@@ -73,10 +72,9 @@ Future<void> setBrightness(String ip, int value) async {
 Future<void> setPreset(String ip, Map<String, dynamic> settings) async {
   try {
     // Extract settings with defaults
-    final effectName = settings['effect'] ?? 'Solid';
-    final effectId = EffectsDatabase.getEffectId(effectName);
+    final effectId = settings['fxNumber'] as int? ?? 0; // Use fxNumber directly, default to 0 (Solid)
     final palette = settings['palette'] as int? ?? 0;
-    final colors = settings['colors'] as List<dynamic>?; // Expecting a list
+    final colors = settings['colors'] as List<dynamic>?; // Expecting a list of hex strings
     final speed = settings['speed'] as int?;
     final intensity = settings['intensity'] as int?;
     final c1 = settings['custom1'] as int?;
@@ -88,34 +86,48 @@ Future<void> setPreset(String ip, Map<String, dynamic> settings) async {
 
     // Log the raw settings
     print('Settings received: $settings');
+    print('Raw colors from settings: $colors');
+    print('Colors type: ${colors.runtimeType}');
 
-    // Convert colors to RGB, default to white if none provided
-    final colorArray = colors != null && colors.isNotEmpty
-        ? colors.map((c) => hexToRgb(c as String)).toList()
-        : [[255, 255, 255]]; // Default to white if no colors
+    // Convert colors to RGB
+    List<List<int>> colorArray;
+    if (colors == null) {
+      print('Colors is null, defaulting to white');
+      colorArray = [[255, 255, 255]];
+    } else if (colors.isEmpty) {
+      print('Colors is empty, defaulting to white');
+      colorArray = [[255, 255, 255]];
+    } else {
+      try {
+        colorArray = colors.map((c) {
+          print('Processing color: $c (type: ${c.runtimeType})');
+          final color = hexToRgb(c.toString()); // Convert to string to handle potential type issues
+          print('Converted $c to $color');
+          return color;
+        }).toList();
+        if (colorArray.isEmpty) {
+          print('Color array is empty after mapping, defaulting to white');
+          colorArray = [[255, 255, 255]];
+        }
+      } catch (e) {
+        print('Error processing colors: $e');
+        colorArray = [[255, 255, 255]];
+      }
+    }
 
-    // Log the converted colors
-    print('Converted colorArray: $colorArray');
+    // Log the final color array
+    print('Final colorArray: $colorArray');
 
-    // Pad or truncate to exactly 3 colors for WLED
-    final paddedColors = [
-      colorArray.length > 0 ? colorArray[0] : [255, 255, 255],
-      colorArray.length > 1 ? colorArray[1] : [0, 0, 0],
-      colorArray.length > 2 ? colorArray[2] : [0, 0, 0],
-    ];
-
-    // Log the final padded colors
-    print('Padded colors: $paddedColors');
-
+    // Build payload for the first segment with all colors
     final payload = {
       'seg': [
         {
-          'id': 0,
+          'id': 0, // First segment
           'start': 0,
-          'stop': 9999,
+          'stop': 9999, // Adjust if you know your LED count
           'on': true,
-          'col': paddedColors,
-          'fx': effectId,
+          'col': colorArray, // Send all colors as-is
+          'fx': effectId, // Use fxNumber directly
           'pal': palette,
           if (speed != null) 'sx': speed,
           if (intensity != null) 'ix': intensity,
@@ -140,8 +152,11 @@ Future<void> setPreset(String ip, Map<String, dynamic> settings) async {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to set preset: ${response.statusCode}');
+    } else {
+      print('Preset set successfully, response: ${response.body}');
     }
   } catch (e) {
+    print('Error in setPreset: $e');
     throw Exception('Failed to set preset: $e');
   }
 }

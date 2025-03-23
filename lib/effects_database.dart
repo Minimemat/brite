@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class EffectsDatabase {
   static const List<Map<String, dynamic>> effectsDatabase = [
   {

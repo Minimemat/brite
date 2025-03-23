@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class PalettesDatabase {
   static const List<Map<String, dynamic>> palettesDatabase = [
     // Standard palettes from WLED documentation (IDs 0-70)

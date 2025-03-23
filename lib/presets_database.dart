@@ -42,7 +42,7 @@ class Preset {
   Map<String, dynamic> toSettings() {
     return {
       'effect': effectName,
-      if (colors != null && colors!.isNotEmpty) 'color': colors![0],
+      if (colors != null && colors!.isNotEmpty) 'colors': colors, // Send full colors list
       if (paletteId != null) 'palette': paletteId,
       if (sx != null) 'speed': sx,
       if (ix != null) 'intensity': ix,
