@@ -7,6 +7,7 @@ import '../api.dart';
 import 'device_card.dart';
 import 'web_view.dart';
 import 'presets_screen.dart';
+import 'custom_pattern_screen.dart'; // Import the CustomPatternScreen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         devices = [
           Device(name: 'Home', ip: '192.168.50.246'),
-          Device(name: 'Test Device', ip: '192.168.50.17'),
+          Device(name: 'Test Device', ip: '192.168.50.101'),
+          Device(name: 'Test dead', ip: '192.168.50.17'),
         ];
       });
       _saveDevices(); // Save the default devices
@@ -261,6 +263,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => PresetsScreen(device: device),
+                        ),
+                      );
+                    },
+                    onOpenCustom: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CustomPatternScreen(ip: device.ip),
                         ),
                       );
                     },

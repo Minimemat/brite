@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/device.dart';
+import 'custom_pattern_screen.dart'; // Import the CustomPatternScreen
 
 class DeviceCard extends StatelessWidget {
   final Device device;
@@ -9,6 +10,7 @@ class DeviceCard extends StatelessWidget {
   final Function(double) onSetBrightness;
   final VoidCallback onOpenWebView;
   final VoidCallback? onOpenPresets;
+  final VoidCallback? onOpenCustom; // New callback for the Custom button
 
   const DeviceCard({
     super.key,
@@ -18,6 +20,7 @@ class DeviceCard extends StatelessWidget {
     required this.onSetBrightness,
     required this.onOpenWebView,
     this.onOpenPresets,
+    this.onOpenCustom, // Add the new parameter
   });
 
   // Helper to determine if a color is light or dark based on luminance
@@ -222,7 +225,11 @@ class DeviceCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: onOpenWebView,
+                        onPressed: device.isSynced
+                            ? () {
+                                onOpenWebView!();
+                              }
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: buttonColor,
                           foregroundColor: buttonTextColor,
@@ -236,7 +243,11 @@ class DeviceCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: onOpenPresets,
+                        onPressed: device.isSynced && onOpenPresets != null
+                            ? () {
+                                onOpenPresets!();
+                              }
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: buttonColor,
                           foregroundColor: buttonTextColor,
@@ -245,6 +256,24 @@ class DeviceCard extends StatelessWidget {
                           ),
                         ),
                         child: const Text('Presets'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: device.isSynced && onOpenCustom != null
+                            ? () {
+                                onOpenCustom!();
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          foregroundColor: buttonTextColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: const Text('Custom'),
                       ),
                     ),
                   ],
