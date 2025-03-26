@@ -5,7 +5,7 @@ class EffectsDatabase {
     'name': 'Solid',
     'description': 'Solid primary color on all LEDs.',
     'flags': ['1D'],
-    'colors': [],
+    'colors': ['Pal', 'Fx'],
     'parameters': [],
   },
   {
@@ -397,7 +397,7 @@ class EffectsDatabase {
     'name': 'Two Dots',
     'description': 'Two areas sweeping.',
     'flags': ['1D'],
-    'colors': ['Pal', '1', '2', 'Bg'],
+    'colors': ['Pal', '1', '2', '3'],
     'parameters': ['Speed', 'Dot size', 'Overlay'],
   },
   {
@@ -741,7 +741,7 @@ class EffectsDatabase {
     'name': 'Sinelon Rainbow',
     'description': 'Sinelon in rainbow colours.',
     'flags': ['1D'],
-    'colors': ['Pal', 'Cs'],
+    'colors': ['Pal', 'Fx', 'Bg'],
     'parameters': ['Speed', 'Trail'],
   },
   {
@@ -853,8 +853,8 @@ class EffectsDatabase {
     'name': 'Sine',
     'description': 'Controllable sine waves.',
     'flags': ['1D'],
-    'colors': [],
-    'parameters': [],
+    'colors': ['Pal', 'Fx', 'Bg'],
+    'parameters': ['Speed', 'Scale'],
   },
   {
     'id': 109,

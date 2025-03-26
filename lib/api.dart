@@ -1,3 +1,4 @@
+// api.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -186,6 +187,162 @@ Future<void> setPreset(String ip, Map<String, dynamic> settings) async {
   } catch (e) {
     print('Error in setPreset: $e');
     throw Exception('Failed to set preset: $e');
+  }
+}
+
+// Save a preset to WLED (create or overwrite)
+Future<void> savePreset(String ip, int presetId, String name, Map<String, dynamic> settings) async {
+  try {
+    final segments = settings['seg'] as List<dynamic>? ?? [];
+    final effectId = settings['effect'] as int?;
+    final colors = settings['colors'] as List<dynamic>?;
+    final palette = settings['palette'] as int?;
+    final speed = settings['speed'] as int?;
+    final intensity = settings['intensity'] as int?;
+    final c1 = settings['custom1'] as int?;
+    final c2 = settings['custom2'] as int?;
+    final c3 = settings['custom3'] as int?;
+    final o1 = settings['option1'] as bool?;
+    final o2 = settings['option2'] as bool?;
+    final o3 = settings['option3'] as bool?;
+
+    const maxSegments = 16;
+    final activeSegments = segments.isNotEmpty ? segments.length : (colors != null ? 1 : 0);
+
+    final allSegments = List<Map<String, dynamic>>.generate(maxSegments, (index) {
+      if (segments.isNotEmpty && index < segments.length) {
+        final seg = segments[index] as Map<String, dynamic>;
+        return {
+          'id': seg['id'] ?? index,
+          'start': seg['start'] ?? 0,
+          'stop': seg['stop'] ?? 1000,
+          'grp': seg['grp'] ?? 1,
+          'spc': seg['spc'] ?? 0,
+          'of': seg['of'] ?? 0,
+          'on': seg['on'] ?? true,
+          'bri': seg['bri'] ?? 255,
+          'col': seg['col'] ?? [[255, 255, 255, 0]],
+          'fx': seg['fx'] ?? 0,
+          'sx': seg['sx'] ?? 128,
+          'ix': seg['ix'] ?? 128,
+          'pal': seg['pal'] ?? 0,
+          'sel': seg['sel'] ?? (index == 0),
+          'rev': seg['rev'] ?? false,
+          'mi': seg['mi'] ?? false,
+        };
+      } else if (index == 0 && colors != null && effectId != null) {
+        return {
+          'id': 0,
+          'start': 0,
+          'stop': 1000,
+          'grp': 1,
+          'spc': 0,
+          'of': 0,
+          'on': true,
+          'bri': 255,
+          'col': colors.map((color) => hexToRgb(color.toString())).toList(),
+          'fx': effectId,
+          'sx': speed ?? 128,
+          'ix': intensity ?? 128,
+          'pal': palette ?? 0,
+          'c1': c1 ?? 128,
+          'c2': c2 ?? 128,
+          'c3': c3 ?? 16,
+          'sel': true,
+          'rev': false,
+          'mi': false,
+          'o1': o1 ?? false,
+          'o2': o2 ?? false,
+          'o3': o3 ?? false,
+        };
+      } else {
+        return {'stop': 0}; // Terminate unused segments
+      }
+    });
+
+    final payload = {
+      'on': settings['on'] ?? true,
+      'bri': settings['bri'] ?? 150,
+      'mainseg': settings['mainseg'] ?? 0,
+      'seg': allSegments,
+      'transition': settings['transition'] ?? 7,
+      'psave': presetId,
+      'n': name,
+      'ib': true,
+      'sb': true,
+    };
+
+    print('Saving preset $presetId: ${jsonEncode(payload)}');
+    
+    final response = await http.post(
+      Uri.parse('http://$ip/json/state'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save preset $presetId: ${response.statusCode} - ${response.body}');
+    }
+    print('Preset $presetId saved successfully: ${response.body}');
+  } catch (e) {
+    print('Error in savePreset: $e');
+    throw Exception('Failed to save preset: $e');
+  }
+}
+
+// Set a timer on WLED
+Future<void> setTimer(String ip, int slot, Map<String, dynamic> timerSettings) async {
+  try {
+    final payload = {
+      'timer': {
+        '$slot': timerSettings,
+      },
+    };
+
+    print('Setting timer for slot $slot: ${jsonEncode(payload)}');
+    
+    final response = await http.post(
+      Uri.parse('http://$ip/json'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set timer for slot $slot: ${response.statusCode} - ${response.body}');
+    }
+    print('Timer for slot $slot set successfully: ${response.body}');
+  } catch (e) {
+    print('Error in setTimer: $e');
+    throw Exception('Failed to set timer: $e');
+  }
+}
+
+// Disable a timer on WLED
+Future<void> disableTimer(String ip, int slot) async {
+  try {
+    final payload = {
+      'timer': {
+        '$slot': {
+          'enabled': false,
+        },
+      },
+    };
+
+    print('Disabling timer for slot $slot: ${jsonEncode(payload)}');
+    
+    final response = await http.post(
+      Uri.parse('http://$ip/json'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to disable timer for slot $slot: ${response.statusCode} - ${response.body}');
+    }
+    print('Timer for slot $slot disabled successfully: ${response.body}');
+  } catch (e) {
+    print('Error in disableTimer: $e');
+    throw Exception('Failed to disable timer: $e');
   }
 }
 

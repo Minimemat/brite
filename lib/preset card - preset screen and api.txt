@@ -1,0 +1,732 @@
+import 'package:flutter/material.dart';
+import '../presets_database.dart';
+import '../effects_database.dart';
+import '../palettes_database.dart';
+
+class PresetCard extends StatelessWidget {
+  final Preset preset;
+  final VoidCallback onTap;
+
+  const PresetCard({
+    super.key,
+    required this.preset,
+    required this.onTap,
+  });
+
+  Map<String, dynamic> _getEffectById(int fxId) {
+    return EffectsDatabase.effectsDatabase.firstWhere(
+      (e) => e['id'] == fxId,
+      orElse: () => {'name': 'Unknown', 'flags': [], 'colors': [], 'parameters': []},
+    );
+  }
+
+  Map<String, dynamic> _getPaletteById(int paletteId) {
+    return PalettesDatabase.palettesDatabase.firstWhere(
+      (p) => p['id'] == paletteId,
+      orElse: () => {'name': 'Unknown', 'colors': []},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effect = _getEffectById(preset.fx);
+    final palette = preset.paletteId != null ? _getPaletteById(preset.paletteId!) : null;
+    final effectColors = (effect['colors'] as List<dynamic>?) ?? [];
+    final presetColors = preset.colors ?? [];
+    final paletteId = preset.paletteId ?? 0;
+    final availableColors = <String>[];
+
+    // Determine which colors to show based on effect's supported colors
+    int colorIndex = 0;
+    for (var colorType in effectColors) {
+      if (colorType != 'Pal' && colorIndex < presetColors.length) {
+        availableColors.add(presetColors[colorIndex]);
+        colorIndex++;
+      }
+    }
+
+    // Special handling for palettes 0-5 when selected
+    Widget colorDisplay;
+    if (preset.isSelected && paletteId <= 5) {
+      switch (paletteId) {
+        case 0: // Default: 1 color (Primary)
+        case 2: // Color 1: 1 color (Primary)
+          colorDisplay = Container(
+            width: 40,
+            height: 16,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white, width: 1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: BoxDecoration(
+                    color: presetColors.isNotEmpty
+                        ? Color(int.parse('FF${presetColors[0]}', radix: 16))
+                        : Colors.grey,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+          );
+          break;
+        case 1: // Random Cycle: Rainbow pattern
+          colorDisplay = Container(
+            width: 40,
+            height: 16,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white, width: 1),
+              borderRadius: BorderRadius.circular(8),
+              gradient: const LinearGradient(
+                colors: [
+                  Colors.red,
+                  Colors.orange,
+                  Colors.yellow,
+                  Colors.green,
+                  Colors.blue,
+                  Colors.indigo,
+                  Colors.purple,
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+          );
+          break;
+        case 3: // Colors 1&2: 2 colors (Primary, Secondary)
+          colorDisplay = Container(
+            width: 40,
+            height: 16,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white, width: 1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(2, (index) {
+                return Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: BoxDecoration(
+                    color: index < presetColors.length
+                        ? Color(int.parse('FF${presetColors[index]}', radix: 16))
+                        : Colors.grey,
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
+            ),
+          );
+          break;
+        case 4: // Color Gradient: 3 colors (Primary, Secondary, Tertiary)
+        case 5: // Colors Only: 3 colors (Primary, Secondary, Tertiary)
+          colorDisplay = Container(
+            width: 40,
+            height: 16,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white, width: 1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (index) {
+                return Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: BoxDecoration(
+                    color: index < presetColors.length
+                        ? Color(int.parse('FF${presetColors[index]}', radix: 16))
+                        : Colors.grey,
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
+            ),
+          );
+          break;
+        default:
+          colorDisplay = const SizedBox.shrink();
+      }
+    } else if (paletteId > 5) {
+      // Show palette name for IDs 6 and above
+      colorDisplay = Container(
+        width: 40,
+        alignment: Alignment.center,
+        child: Text(
+          palette?['name'] ?? 'Unknown',
+          style: TextStyle(
+            fontSize: 10,
+            color: preset.isSelected ? Colors.white : Colors.white70,
+            fontStyle: FontStyle.italic,
+          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+    } else {
+      // Show all available colors regardless of selection state
+      colorDisplay = Container(
+        width: 40,
+        height: 16,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: preset.isSelected ? Colors.white : Colors.white70,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            availableColors.length > 3 ? 3 : availableColors.length,
+            (colorIndex) {
+              return Container(
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                decoration: BoxDecoration(
+                  color: Color(int.parse('FF${availableColors[colorIndex]}', radix: 16)),
+                  shape: BoxShape.circle,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: preset.isSelected ? 8.0 : 2.0,
+      color: preset.isSelected ? Colors.blue[700] : const Color(0xFF2D3436),
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Column(
+                children: [
+                  Icon(
+                    preset.icon,
+                    size: 40,
+                    color: preset.isSelected ? Colors.white : Colors.white70,
+                  ),
+                  const SizedBox(height: 4),
+                  colorDisplay,
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      preset.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: preset.isSelected ? Colors.white : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      preset.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: preset.isSelected ? Colors.white70 : Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Effect: ${effect['name']}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: preset.isSelected ? Colors.white70 : Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../models/device.dart';
+import '../api.dart';
+import '../presets_database.dart';
+import 'preset_card.dart';
+import 'bottom_drawer.dart';
+
+class PresetsScreen extends StatefulWidget {
+  final Device device;
+
+  const PresetsScreen({super.key, required this.device});
+
+  @override
+  State<PresetsScreen> createState() => _PresetsScreenState();
+}
+
+class _PresetsScreenState extends State<PresetsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  List<Preset> allPresets = PresetDatabase.presets;
+  List<Preset> filteredPresets = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _currentCategory = 'All';
+  Preset? selectedPreset;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 6, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _currentCategory = _getCategoryFromIndex(_tabController.index);
+        _filterPresets();
+      });
+    });
+    filteredPresets = allPresets;
+    _searchController.addListener(_filterPresets);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  String _getCategoryFromIndex(int index) {
+    switch (index) {
+      case 0: return 'All';
+      case 1: return 'Test';
+      case 2: return 'Holidays';
+      case 3: return 'Accents';
+      case 4: return 'Sports';
+      case 5: return 'Events';
+      default: return 'All';
+    }
+  }
+
+  void _filterPresets() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      filteredPresets = PresetDatabase.getPresetsByCategory(_currentCategory)
+          .where((preset) => preset.name.toLowerCase().contains(query))
+          .toList();
+    });
+  }
+
+  void _selectPreset(Preset preset) async {
+    setState(() {
+      for (var p in allPresets) {
+        p.isSelected = p == preset;
+      }
+      selectedPreset = preset;
+    });
+
+    final settings = _convertPresetToSettings(preset);
+    try {
+      await setPreset(widget.device.ip, settings);
+    } catch (e) {
+      print('Failed to apply preset: $e');
+    }
+  }
+
+  void _onSettingsModified() {
+    setState(() {
+      for (var preset in allPresets) {
+        preset.isSelected = false;
+      }
+      selectedPreset = null;
+    });
+  }
+
+  Map<String, dynamic> _convertPresetToSettings(Preset preset) {
+    final colorList = preset.colors?.map((hex) => hexToRgb(hex)).toList() ?? [[255, 255, 255, 0]];
+    final segments = [
+      {
+        'id': 0,
+        'start': 0,
+        'stop': 1000,
+        'grp': 1,
+        'spc': 0,
+        'of': 0,
+        'on': true,
+        'bri': 255,
+        'col': colorList.length > 1 ? colorList : [colorList[0], [0, 0, 0, 0], [0, 0, 0, 0]],
+        'fx': preset.fx,
+        'sx': preset.sx ?? 128,
+        'ix': preset.ix ?? 128,
+        'pal': preset.paletteId ?? 0,
+        'c1': preset.c1 ?? 128,
+        'c2': preset.c2 ?? 128,
+        'c3': preset.c3 ?? 16,
+        'sel': true,
+        'rev': false,
+        'mi': false,
+      },
+      for (int i = 1; i < 16; i++) {'stop': 0},
+    ];
+
+    return {
+      'on': true,
+      'bri': 150,
+      'mainseg': 0,
+      'seg': segments,
+      'transition': 7,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1E2526),
+      appBar: AppBar(
+        title: Text('${widget.device.name} Presets'),
+        backgroundColor: const Color(0xFF2D3436),
+      ),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Search Presets',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.white70),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.white70),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: Colors.blue,
+                tabs: const [
+                  Tab(text: 'All'),
+                  Tab(text: 'Test'),
+                  Tab(text: 'Holidays'),
+                  Tab(text: 'Accents'),
+                  Tab(text: 'Sports'),
+                  Tab(text: 'Events'),
+                ],
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(8.0).copyWith(bottom: 100), // Increased padding to fix overflow
+                  itemCount: filteredPresets.length,
+                  itemBuilder: (context, index) {
+                    final preset = filteredPresets[index];
+                    return PresetCard(
+                      preset: preset,
+                      onTap: () => _selectPreset(preset),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: BottomDrawer(
+              deviceIp: widget.device.ip,
+              selectedPreset: selectedPreset,
+              onSettingsModified: _onSettingsModified,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Helper to convert Color object to RGB array
+List<int> colorToRgb(Color color) {
+  try {
+    final rgb = [color.red, color.green, color.blue, 0];
+    print('Converted color ${color.value.toRadixString(16)} to RGB: $rgb');
+    return rgb;
+  } catch (e) {
+    print('Error converting color: $e');
+    return [255, 255, 255, 0];
+  }
+}
+
+// Helper to convert hex string to RGB array
+List<int> hexToRgb(String hex) {
+  hex = hex.replaceAll('#', '');
+  if (hex.length == 6) {
+    try {
+      final r = int.parse(hex.substring(0, 2), radix: 16);
+      final g = int.parse(hex.substring(2, 4), radix: 16);
+      final b = int.parse(hex.substring(4, 6), radix: 16);
+      print('Parsed hex $hex to RGB: [$r, $g, $b, 0]');
+      return [r, g, b, 0];
+    } catch (e) {
+      print('Error parsing hex color "$hex": $e');
+      return [255, 255, 255, 0];
+    }
+  }
+  print('Invalid hex length for "$hex", expected 6 digits');
+  return [255, 255, 255, 0];
+}
+
+// Get WLED device state
+Future<Map<String, dynamic>> getState(String ip) async {
+  try {
+    final response = await http.get(Uri.parse('http://$ip/json/state'));
+    if (response.statusCode == 200) {
+      final state = jsonDecode(response.body) as Map<String, dynamic>;
+      print('Retrieved state: $state');
+      return state;
+    } else {
+      throw Exception('Failed to get state: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error getting state: $e');
+    throw Exception('Failed to get state: $e');
+  }
+}
+
+// Set power state
+Future<void> setPower(String ip, bool value) async {
+  try {
+    final payload = {'on': value};
+    final response = await http.post(
+      Uri.parse('http://$ip/json/state'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set power: ${response.statusCode}');
+    }
+    print('Power set to $value');
+  } catch (e) {
+    print('Error setting power: $e');
+    throw Exception('Failed to set power: $e');
+  }
+}
+
+// Set brightness
+Future<void> setBrightness(String ip, int value) async {
+  if (value < 0 || value > 255) {
+    throw Exception('Brightness must be between 0 and 255');
+  }
+  try {
+    final payload = {'bri': value};
+    final response = await http.post(
+      Uri.parse('http://$ip/json/state'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set brightness: ${response.statusCode}');
+    }
+    print('Brightness set to $value');
+  } catch (e) {
+    print('Error setting brightness: $e');
+    throw Exception('Failed to set brightness: $e');
+  }
+}
+
+// Set custom preset with multiple segments
+Future<void> setPreset(String ip, Map<String, dynamic> settings) async {
+  try {
+    // Handle both custom pattern and preset database cases
+    final segments = settings['seg'] as List<dynamic>? ?? [];
+    final effectId = settings['effect'] as int?;
+    final colors = settings['colors'] as List<dynamic>?;
+    final palette = settings['palette'] as int?;
+    final speed = settings['speed'] as int?;
+    final intensity = settings['intensity'] as int?;
+    final c1 = settings['custom1'] as int?;
+    final c2 = settings['custom2'] as int?;
+    final c3 = settings['custom3'] as int?;
+    final o1 = settings['option1'] as bool?;
+    final o2 = settings['option2'] as bool?;
+    final o3 = settings['option3'] as bool?;
+
+    const maxSegments = 16;
+    final activeSegments = segments.isNotEmpty ? segments.length : (colors != null ? 1 : 0);
+
+    final allSegments = List<Map<String, dynamic>>.generate(maxSegments, (index) {
+      if (segments.isNotEmpty && index < segments.length) {
+        final seg = segments[index] as Map<String, dynamic>;
+        return {
+          'id': seg['id'] ?? index,
+          'start': seg['start'] ?? 0,
+          'stop': seg['stop'] ?? 1000,
+          'grp': seg['grp'] ?? 1,
+          'spc': seg['spc'] ?? 0,
+          'of': seg['of'] ?? 0,
+          'on': seg['on'] ?? true,
+          'bri': seg['bri'] ?? 255,
+          'col': seg['col'] ?? [[255, 255, 255, 0]],
+          'fx': seg['fx'] ?? 0,
+          'sx': seg['sx'] ?? 128,
+          'ix': seg['ix'] ?? 128,
+          'pal': seg['pal'] ?? 0,
+          'sel': seg['sel'] ?? (index == 0),
+          'rev': seg['rev'] ?? false,
+          'mi': seg['mi'] ?? false,
+        };
+      } else if (index == 0 && colors != null && effectId != null) {
+        // For preset database entries, create one segment
+        return {
+          'id': 0,
+          'start': 0,
+          'stop': 1000,
+          'grp': 1,
+          'spc': 0,
+          'of': 0,
+          'on': true,
+          'bri': 255,
+          'col': colors.map((color) => hexToRgb(color.toString())).toList(),
+          'fx': effectId,
+          'sx': speed ?? 128,
+          'ix': intensity ?? 128,
+          'pal': palette ?? 0,
+          'c1': c1 ?? 128,
+          'c2': c2 ?? 128,
+          'c3': c3 ?? 16,
+          'sel': true,
+          'rev': false,
+          'mi': false,
+          'o1': o1 ?? false,
+          'o2': o2 ?? false,
+          'o3': o3 ?? false,
+        };
+      } else {
+        return {'stop': 0}; // Terminate unused segments
+      }
+    });
+
+    final payload = {
+      'on': settings['on'] ?? true,
+      'bri': settings['bri'] ?? 150,
+      'mainseg': settings['mainseg'] ?? 0,
+      'seg': allSegments,
+      'transition': settings['transition'] ?? 7,
+    };
+
+    print('Sending preset payload: ${jsonEncode(payload)}');
+    
+    final response = await http.post(
+      Uri.parse('http://$ip/json/state'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set preset: ${response.statusCode} - ${response.body}');
+    }
+    print('Preset applied successfully: ${response.body}');
+  } catch (e) {
+    print('Error in setPreset: $e');
+    throw Exception('Failed to set preset: $e');
+  }
+}
+
+// Create preset from colors and effect with dynamic segments (for custom pattern screen only)
+Map<String, dynamic> createPresetFromColors(List<Color> colors, int effectId, {int ledCount = 1000}) {
+  try {
+    final numSegments = colors.length;
+    final spacing = numSegments > 1 ? (numSegments - 1) : 0;
+    
+    final segments = colors.asMap().entries.map((entry) {
+      final index = entry.key;
+      final color = entry.value;
+      return {
+        'id': index,
+        'start': 0,
+        'stop': ledCount,
+        'grp': 1,
+        'spc': spacing,
+        'of': index,
+        'on': true,
+        'bri': 255,
+        'col': [
+          colorToRgb(color),
+          [0, 0, 0, 0], // Second color black
+          [0, 0, 0, 0], // Third color black
+        ],
+        'fx': effectId,
+        'sx': 128,
+        'ix': 128,
+        'pal': 0,
+      };
+    }).toList();
+
+    return {
+      'bri': 150,
+      'mainseg': 0,
+      'on': true,
+      'seg': segments,
+      'transition': 7,
+    };
+  } catch (e) {
+    print('Error creating preset: $e');
+    rethrow;
+  }
+}
+
+// Extract first color from state
+Color extractFirstColor(Map<String, dynamic> state) {
+  try {
+    final segments = state['seg'] as List<dynamic>?;
+    if (segments != null && segments.isNotEmpty) {
+      final segment = segments[0] as Map<String, dynamic>;
+      final col = segment['col'] as List<dynamic>?;
+      if (col != null && col.isNotEmpty) {
+        final firstColor = col[0] as List<dynamic>;
+        if (firstColor.length >= 3) {
+          return Color.fromRGBO(firstColor[0], firstColor[1], firstColor[2], 1.0);
+        }
+      }
+    }
+    return Colors.grey;
+  } catch (e) {
+    print('Error extracting first color: $e');
+    return Colors.grey;
+  }
+}
