@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:nsd/nsd.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Helper to convert Color object to RGB array
 List<int> colorToRgb(Color color) {
@@ -32,6 +34,52 @@ List<int> hexToRgb(String hex) {
   }
   print('Invalid hex length for "$hex", expected 6 digits');
   return [255, 255, 255, 0];
+}
+
+// Discover WLED devices using mDNS (not supported on web)
+Future<List<Map<String, String>>> discoverWledDevices() async {
+  if (kIsWeb) {
+    // Web platform doesn't support mDNS discovery
+    print('mDNS discovery is not supported on web platform');
+    return [];
+  }
+
+  try {
+    // Start mDNS discovery for WLED services (WLED typically uses "_wled._tcp")
+    final discovery = await startDiscovery('_wled._tcp');
+    final List<Map<String, String>> discoveredDevices = [];
+
+    // Listen for discovered services for 5 seconds
+    final streamSubscription = discovery.stream.listen((service) async {
+      final addresses = service.addresses;
+      final port = service.port;
+      final name = service.name ?? 'Unknown WLED Device';
+
+      if (addresses != null && addresses.isNotEmpty && port != null) {
+        final address = addresses.first;
+        print('Found WLED device: ${address.address}:$port');
+        discoveredDevices.add({
+          'name': name,
+          'ip': address.address,
+          'port': port.toString(),
+        });
+      }
+    });
+
+    // Stop discovery after 5 seconds
+    await Future.delayed(Duration(seconds: 5));
+    await streamSubscription.cancel();
+    await stopDiscovery(discovery);
+
+    return discoveredDevices;
+  } catch (e) {
+    print('Error discovering WLED devices: $e');
+    return [];
+  }
+}
+
+extension on Discovery {
+  get stream => null;
 }
 
 // Get WLED device state

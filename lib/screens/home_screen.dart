@@ -1,13 +1,15 @@
+// home_screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/device.dart';
 import '../api.dart';
 import 'device_card.dart';
 import 'web_view.dart';
 import 'presets_screen.dart';
-import 'custom_pattern_screen.dart'; // Import the CustomPatternScreen
+import 'custom_pattern_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,82 +21,167 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Device> devices = [];
   late Timer _timer;
+  bool _isDiscovering = false;
 
   @override
   void initState() {
     super.initState();
-    _loadDevices(); // Load saved devices on startup
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) => _syncDevices());
+    print('HomeScreen initState called');
+    _initializeApp();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      print('Timer triggered: Syncing devices');
+      _syncDevices();
+    });
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      print('Initializing app');
+      await _loadDevices();
+      print('App initialization complete');
+    } catch (e) {
+      print('Error during app initialization: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing app: $e')),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
+    print('HomeScreen dispose called');
     _timer.cancel();
     super.dispose();
   }
 
   // Load devices from shared preferences
   Future<void> _loadDevices() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? devicesJson = prefs.getString('devices');
-    if (devicesJson != null) {
-      final List<dynamic> devicesList = jsonDecode(devicesJson);
-      setState(() {
-        devices = devicesList
-            .map((json) => Device(
-                  name: json['name'],
-                  ip: json['ip'],
-                  isOn: json['isOn'] ?? false,
-                  brightness: (json['brightness'] ?? 100).toDouble(),
-                  isSynced: json['isSynced'] ?? true,
-                ))
-            .toList();
-      });
-    } else {
-      // Default devices if none are saved
-      setState(() {
-        devices = [
-          Device(name: 'Home', ip: '192.168.50.246'),
-          Device(name: 'Test Device', ip: '192.168.50.101'),
-          Device(name: 'Test dead', ip: '192.168.50.17'),
-        ];
-      });
-      _saveDevices(); // Save the default devices
+    try {
+      print('Loading devices');
+      // Temporarily skip shared_preferences to test if it's causing the crash
+      /*final prefs = await SharedPreferences.getInstance();
+      final String? devicesJson = prefs.getString('devices');
+      if (devicesJson != null) {
+        print('Devices found in shared preferences: $devicesJson');
+        final List<dynamic> devicesList = jsonDecode(devicesJson);
+        setState(() {
+          devices = devicesList
+              .map((json) => Device(
+                    name: json['name'],
+                    ip: json['ip'],
+                    isOn: json['isOn'] ?? false,
+                    brightness: (json['brightness'] ?? 100).toDouble(),
+                    isSynced: json['isSynced'] ?? true,
+                  ))
+              .toList();
+        });
+        print('Loaded ${devices.length} devices');
+      } else {*/
+        print('Using default devices');
+        setState(() {
+          devices = [
+            Device(name: 'Home', ip: '192.168.50.246'),
+            Device(name: 'Test Device', ip: '192.168.50.101'),
+            Device(name: 'Test dead', ip: '192.168.50.17'),
+          ];
+        });
+        //await _saveDevices(); // Skip saving for now
+      //}
+    } catch (e) {
+      print('Error loading devices: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading devices: $e')),
+        );
+      }
     }
-    _syncDevices();
   }
 
   // Save devices to shared preferences
   Future<void> _saveDevices() async {
-    final prefs = await SharedPreferences.getInstance();
-    final devicesJson = jsonEncode(devices.map((device) => {
-          'name': device.name,
-          'ip': device.ip,
-          'isOn': device.isOn,
-          'brightness': device.brightness,
-          'isSynced': device.isSynced,
-        }).toList());
-    await prefs.setString('devices', devicesJson);
+    try {
+      print('Saving devices to shared preferences');
+      final prefs = await SharedPreferences.getInstance();
+      final devicesJson = jsonEncode(devices.map((device) => {
+            'name': device.name,
+            'ip': device.ip,
+            'isOn': device.isOn,
+            'brightness': device.brightness,
+            'isSynced': device.isSynced,
+          }).toList());
+      await prefs.setString('devices', devicesJson);
+      print('Devices saved successfully');
+    } catch (e) {
+      print('Error saving devices: $e');
+    }
+  }
+
+  // Discover WLED devices using mDNS
+  Future<void> _discoverDevices() async {
+    if (kIsWeb) {
+      print('mDNS discovery attempted on web platform');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('mDNS discovery is not supported on web. Please add devices manually.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isDiscovering = true;
+    });
+
+    try {
+      print('Starting device discovery');
+      final discoveredDevices = await discoverWledDevices();
+      print('Device discovery completed: Found ${discoveredDevices.length} devices');
+      for (var deviceInfo in discoveredDevices) {
+        final name = deviceInfo['name'] ?? 'WLED Device';
+        final ip = deviceInfo['ip']!;
+        // Check if the device is already in the list to avoid duplicates
+        if (!devices.any((d) => d.ip == ip)) {
+          setState(() {
+            devices.insert(0, Device(name: name, ip: ip));
+          });
+        }
+      }
+      await _saveDevices();
+      await _syncDevices();
+    } catch (e) {
+      print('Error discovering devices: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to discover devices: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isDiscovering = false;
+      });
+    }
   }
 
   Future<void> _syncDevices() async {
+    print('Syncing devices');
     List<Device> syncedDevices = [];
     List<Device> unsyncedDevices = [];
 
     for (var device in devices) {
       try {
+        print('Syncing device: ${device.name} (${device.ip})');
         final state = await getState(device.ip);
-        print('Device ${device.name} state: $state'); // Debug log
+        print('Device ${device.name} state: $state');
         setState(() {
           device.isOn = state['on'] ?? false;
           device.brightness = (state['bri'] ?? 100).toDouble();
           device.isSynced = true;
           device.backgroundColor = extractFirstColor(state);
-          print('Device ${device.name} color: ${device.backgroundColor}'); // Debug log
+          print('Device ${device.name} color: ${device.backgroundColor}');
         });
         syncedDevices.add(device);
       } catch (e) {
-        print('Failed to sync device ${device.name}: $e'); // Debug log
+        print('Failed to sync device ${device.name}: $e');
         setState(() {
           device.isSynced = false;
           device.backgroundColor = null;
@@ -105,50 +192,60 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       devices = [...syncedDevices, ...unsyncedDevices];
     });
-    await _saveDevices(); // Save after syncing
+    await _saveDevices();
+    print('Device sync complete');
   }
 
   Future<void> _togglePower(Device device, bool value) async {
     try {
+      print('Toggling power for ${device.name} to $value');
       await setPower(device.ip, value);
       await _syncDevice(device);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to toggle power: $e')),
-      );
+      print('Error toggling power for ${device.name}: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to toggle power: $e')),
+        );
+      }
     }
   }
 
   Future<void> _setBrightness(Device device, double value) async {
     try {
+      print('Setting brightness for ${device.name} to $value');
       await setBrightness(device.ip, value.round());
       await _syncDevice(device);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to set brightness: $e')),
-      );
+      print('Error setting brightness for ${device.name}: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to set brightness: $e')),
+        );
+      }
     }
   }
 
   Future<void> _syncDevice(Device device) async {
     try {
+      print('Syncing single device: ${device.name}');
       final state = await getState(device.ip);
-      print('Device ${device.name} state (syncDevice): $state'); // Debug log
+      print('Device ${device.name} state (syncDevice): $state');
       setState(() {
         device.isOn = state['on'] ?? false;
         device.brightness = (state['bri'] ?? 100).toDouble();
         device.isSynced = true;
         device.backgroundColor = extractFirstColor(state);
-        print('Device ${device.name} color (syncDevice): ${device.backgroundColor}'); // Debug log
+        print('Device ${device.name} color (syncDevice): ${device.backgroundColor}');
       });
     } catch (e) {
-      print('Failed to sync device ${device.name} (syncDevice): $e'); // Debug log
+      print('Failed to sync device ${device.name} (syncDevice): $e');
       setState(() {
         device.isSynced = false;
         device.backgroundColor = null;
       });
     }
-    await _saveDevices(); // Save after syncing a single device
+    await _saveDevices();
   }
 
   void _updateBrightness(Device device, double value) {
@@ -183,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('Building HomeScreen');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Brite', textAlign: TextAlign.center),
@@ -194,6 +292,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: _isDiscovering
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Icon(Icons.search),
+            onPressed: _isDiscovering ? null : _discoverDevices,
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () => _showAddDeviceDialog(context),
@@ -214,6 +318,13 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.pop(context);
                 _showAddDeviceDialog(context);
+              },
+            ),
+            ListTile(
+              title: const Text('Discover Devices'),
+              onTap: () {
+                Navigator.pop(context);
+                _discoverDevices();
               },
             ),
             ListTile(
